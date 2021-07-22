@@ -1,3 +1,4 @@
+import com.azure.core.util.BinaryData;
 import com.azure.storage.blob.BlobAsyncClient;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobClientBuilder;
@@ -39,7 +40,7 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildBlockBlobClient();
 
-//        uploadSyncSpecializedBlockBlobClient(syncClient, tempFile1);
+        uploadSyncSpecializedBlockBlobClient(syncClient, tempFile1);
 
         BlobAsyncClient asyncClient = new BlobClientBuilder()
                 .endpoint(ENDPOINT)
@@ -57,7 +58,7 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildClient();
 
-//        uploadSyncGeneralBlobClient(blobGeneralClient, tempFile1);
+        uploadSyncGeneralBlobClient(blobGeneralClient, tempFile1);
     }
     
     private static void uploadSyncSpecializedBlockBlobClient(BlockBlobClient client, File file) throws IOException {
@@ -97,7 +98,7 @@ public class SampleBlobTest extends TestHelper {
                 .setMaxSingleUploadSizeLong(MAX_SINGLE_UPLOAD_SIZE);
 
         client.uploadFromFile(file.getAbsolutePath(), parallelTransferOptions, null, null, AccessTier.HOT, null, null);
-
+//        client.upload(BinaryData.fromBytes((FileUtils.readFileToByteArray(file))), true);
         System.out.println("Upload using BlobClient is done");
     }
 
