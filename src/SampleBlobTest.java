@@ -1,4 +1,6 @@
 import com.azure.storage.blob.BlobAsyncClient;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobClientBuilder;
 import com.azure.storage.blob.models.AccessTier;
 import com.azure.storage.blob.models.ParallelTransferOptions;
 import com.azure.storage.blob.specialized.BlobOutputStream;
@@ -17,12 +19,18 @@ public class SampleBlobTest extends TestHelper {
 
     static final String CONTAINER = "bigfiles";
     static final String BLOB = "MyBlob";
-    static final int FILE_SIZE = 1000 * Constants.MB;
+    static final int FILE_SIZE = 300 * Constants.MB;
     static long BLOCK_SIZE = 5 * Constants.MB;
-    static int MAX_CONCURRENCY = 40;
+    static int MAX_CONCURRENCY = 30;
     static long MAX_SINGLE_UPLOAD_SIZE = 10 * Constants.MB;
 
     public static void main(String[] args) throws IOException {
+
+        System.setProperty("reactor.bufferSize.small", "30");
+        System.setProperty("reactor.bufferSize.x", "30");
+        System.setProperty("reactor.netty.ioWorkerCount", "8");
+
+        File tempFile1 = DataGenerator.createTempLocalFile("blockblob", ".tmp", FILE_SIZE);
 
         BlockBlobClient syncClient = new SpecializedBlobClientBuilder()
                 .endpoint(ENDPOINT)
@@ -31,25 +39,28 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildBlockBlobClient();
 
-        uploadSyncBlockBlobClient(syncClient);
+        uploadSyncSpecializedBlockBlobClient(syncClient, tempFile1);
 
-//        BlobAsyncClient asyncClient = new BlobClientBuilder()
-//                .endpoint(ENDPOINT)
-//                .sasToken(SAS)
-//                .containerName(CONTAINER)
-//                .blobName(BLOB)
-//                .buildAsyncClient();
+        BlobAsyncClient asyncClient = new BlobClientBuilder()
+                .endpoint(ENDPOINT)
+                .sasToken(SAS)
+                .containerName(CONTAINER)
+                .blobName(BLOB)
+                .buildAsyncClient();
 
-//        uploadAsyncBlockBlobClient(asyncClient);
+        uploadAsyncSpecializedBlockBlobClient(asyncClient, tempFile1);
 
+        BlobClient blobGeneralClient = new BlobClientBuilder()
+                .endpoint(ENDPOINT)
+                .sasToken(SAS)
+                .containerName(CONTAINER)
+                .blobName(BLOB)
+                .buildClient();
+
+        uploadSyncGeneralBlobClient(blobGeneralClient, tempFile1);
     }
     
-    private static void uploadSyncBlockBlobClient(BlockBlobClient client) throws IOException {
-        File tempFile1 = DataGenerator.createTempLocalFile("blockblob", ".tmp", FILE_SIZE);
-
-        long BLOCK_SIZE = 5 * Constants.MB;
-        int MAX_CONCURRENCY = 40;
-        long MAX_SINGLE_UPLOAD_SIZE = 10 * Constants.MB;
+    private static void uploadSyncSpecializedBlockBlobClient(BlockBlobClient client, File file) throws IOException {
 
         ParallelTransferOptions parallelTransferOptions = new ParallelTransferOptions()
                 .setBlockSizeLong(BLOCK_SIZE)
@@ -57,15 +68,15 @@ public class SampleBlobTest extends TestHelper {
                 .setMaxSingleUploadSizeLong(MAX_SINGLE_UPLOAD_SIZE);
 
         BlobOutputStream blobOutputStream = client.getBlobOutputStream(parallelTransferOptions, null, null, AccessTier.HOT, null);
-        blobOutputStream.write(FileUtils.readFileToByteArray(tempFile1));
+        blobOutputStream.write(FileUtils.readFileToByteArray(file));
         blobOutputStream.close();
 
-        System.out.println("Upload is done");
+        System.out.println("Upload using BlockBlobClient is done");
     }
 
-    private static void uploadAsyncBlockBlobClient(BlobAsyncClient client) throws IOException {
-        File tempFile1 = DataGenerator.createTempLocalFile("blockblob", ".tmp", FILE_SIZE);
-        Flux<ByteBuffer> data = Flux.just(ByteBuffer.wrap(FileUtils.readFileToByteArray(tempFile1)));
+    private static void uploadAsyncSpecializedBlockBlobClient(BlobAsyncClient client, File file) throws IOException {
+
+        Flux<ByteBuffer> data = Flux.just(ByteBuffer.wrap(FileUtils.readFileToByteArray(file)));
 
         ParallelTransferOptions parallelTransferOptions = new ParallelTransferOptions()
                 .setBlockSizeLong(BLOCK_SIZE)
@@ -74,7 +85,20 @@ public class SampleBlobTest extends TestHelper {
 
         client.upload(data, parallelTransferOptions, true).block(Duration.ofSeconds(300));
 
-        System.out.println("Upload is done");
+        System.out.println("Upload using BlobAsyncClient done");
+    }
+
+
+    private static void uploadSyncGeneralBlobClient(BlobClient client, File file) throws IOException {
+
+        ParallelTransferOptions parallelTransferOptions = new ParallelTransferOptions()
+                .setBlockSizeLong(BLOCK_SIZE)
+                .setMaxConcurrency(MAX_CONCURRENCY)
+                .setMaxSingleUploadSizeLong(MAX_SINGLE_UPLOAD_SIZE);
+
+        client.uploadFromFile(file.getAbsolutePath(), parallelTransferOptions, null, null, AccessTier.HOT, null, null);
+
+        System.out.println("Upload using BlobClient is done");
     }
 
 }
