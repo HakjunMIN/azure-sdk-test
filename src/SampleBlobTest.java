@@ -21,14 +21,14 @@ public class SampleBlobTest extends TestHelper {
     static final String BLOB = "MyBlob";
     static final int FILE_SIZE = 300 * Constants.MB;
     static long BLOCK_SIZE = 5 * Constants.MB;
-    static int MAX_CONCURRENCY = 30;
+    static int MAX_CONCURRENCY = 4;
     static long MAX_SINGLE_UPLOAD_SIZE = 10 * Constants.MB;
 
     public static void main(String[] args) throws IOException {
 
-        System.setProperty("reactor.bufferSize.small", "30");
-        System.setProperty("reactor.bufferSize.x", "30");
-        System.setProperty("reactor.netty.ioWorkerCount", "8");
+//        System.setProperty("reactor.bufferSize.small", "8");
+//        System.setProperty("reactor.bufferSize.x", "8");
+//        System.setProperty("reactor.netty.ioWorkerCount", "4");
 
         File tempFile1 = DataGenerator.createTempLocalFile("blockblob", ".tmp", FILE_SIZE);
 
@@ -39,7 +39,7 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildBlockBlobClient();
 
-        uploadSyncSpecializedBlockBlobClient(syncClient, tempFile1);
+//        uploadSyncSpecializedBlockBlobClient(syncClient, tempFile1);
 
         BlobAsyncClient asyncClient = new BlobClientBuilder()
                 .endpoint(ENDPOINT)
@@ -48,7 +48,7 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildAsyncClient();
 
-        uploadAsyncSpecializedBlockBlobClient(asyncClient, tempFile1);
+        uploadBlobAsyncClient(asyncClient, tempFile1);
 
         BlobClient blobGeneralClient = new BlobClientBuilder()
                 .endpoint(ENDPOINT)
@@ -57,7 +57,7 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildClient();
 
-        uploadSyncGeneralBlobClient(blobGeneralClient, tempFile1);
+//        uploadSyncGeneralBlobClient(blobGeneralClient, tempFile1);
     }
     
     private static void uploadSyncSpecializedBlockBlobClient(BlockBlobClient client, File file) throws IOException {
@@ -74,7 +74,7 @@ public class SampleBlobTest extends TestHelper {
         System.out.println("Upload using BlockBlobClient is done");
     }
 
-    private static void uploadAsyncSpecializedBlockBlobClient(BlobAsyncClient client, File file) throws IOException {
+    private static void uploadBlobAsyncClient(BlobAsyncClient client, File file) throws IOException {
 
         Flux<ByteBuffer> data = Flux.just(ByteBuffer.wrap(FileUtils.readFileToByteArray(file)));
 
