@@ -11,7 +11,9 @@ import com.azure.storage.common.implementation.Constants;
 import org.apache.commons.io.FileUtils;
 import reactor.core.publisher.Flux;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -20,16 +22,16 @@ public class SampleBlobTest extends TestHelper {
 
     static final String CONTAINER = "bigfiles";
     static final String BLOB = "MyBlob";
-    static final int FILE_SIZE = 300 * Constants.MB;
+    static final int FILE_SIZE = 1000 * Constants.MB;
     static long BLOCK_SIZE = 5 * Constants.MB;
     static int MAX_CONCURRENCY = 4;
     static long MAX_SINGLE_UPLOAD_SIZE = 10 * Constants.MB;
 
     public static void main(String[] args) throws IOException {
 
-//        System.setProperty("reactor.bufferSize.small", "8");
-//        System.setProperty("reactor.bufferSize.x", "8");
-//        System.setProperty("reactor.netty.ioWorkerCount", "4");
+        System.setProperty("reactor.bufferSize.small", "8");
+        System.setProperty("reactor.bufferSize.x", "8");
+        System.setProperty("reactor.netty.ioWorkerCount", "8");
 
         File tempFile1 = DataGenerator.createTempLocalFile("blockblob", ".tmp", FILE_SIZE);
 
@@ -40,7 +42,9 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildBlockBlobClient();
 
-        uploadSyncSpecializedBlockBlobClient(syncClient, tempFile1);
+//        uploadSyncSpecializedBlockBlobClient(syncClient, tempFile1);
+
+        uploadBlockBlobClientWithBufferStream(syncClient, tempFile1);
 
         BlobAsyncClient asyncClient = new BlobClientBuilder()
                 .endpoint(ENDPOINT)
@@ -49,7 +53,7 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildAsyncClient();
 
-        uploadBlobAsyncClient(asyncClient, tempFile1);
+//        uploadBlobAsyncClient(asyncClient, tempFile1);
 
         BlobClient blobGeneralClient = new BlobClientBuilder()
                 .endpoint(ENDPOINT)
@@ -58,7 +62,32 @@ public class SampleBlobTest extends TestHelper {
                 .blobName(BLOB)
                 .buildClient();
 
-        uploadSyncGeneralBlobClient(blobGeneralClient, tempFile1);
+//        uploadSyncGeneralBlobClient(blobGeneralClient, tempFile1);
+    }
+
+    private static void uploadBlockBlobClientWithBufferStream(BlockBlobClient client, File file) throws IOException {
+
+        ParallelTransferOptions parallelTransferOptions = new ParallelTransferOptions()
+                .setBlockSizeLong(BLOCK_SIZE)
+                .setMaxConcurrency(MAX_CONCURRENCY)
+                .setMaxSingleUploadSizeLong(MAX_SINGLE_UPLOAD_SIZE);
+
+        BlobOutputStream blobOutputStream = client.getBlobOutputStream(parallelTransferOptions, null, null, AccessTier.HOT, null);
+
+        byte[] buffer = new byte[5 * Constants.MB];
+
+        FileInputStream fileInputStream = new FileInputStream(file);
+        BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+        int length;
+
+        while ((length = bufferedInputStream.read(buffer)) > -1) {
+            blobOutputStream.write(buffer, 0, length);
+        }
+
+        blobOutputStream.close();
+
+        System.out.println("Upload using BlockBlobClient with buffered stream is done");
+
     }
     
     private static void uploadSyncSpecializedBlockBlobClient(BlockBlobClient client, File file) throws IOException {
@@ -70,6 +99,7 @@ public class SampleBlobTest extends TestHelper {
 
         BlobOutputStream blobOutputStream = client.getBlobOutputStream(parallelTransferOptions, null, null, AccessTier.HOT, null);
         blobOutputStream.write(FileUtils.readFileToByteArray(file));
+
         blobOutputStream.close();
 
         System.out.println("Upload using BlockBlobClient is done");
@@ -101,5 +131,6 @@ public class SampleBlobTest extends TestHelper {
 //        client.upload(BinaryData.fromBytes((FileUtils.readFileToByteArray(file))), true);
         System.out.println("Upload using BlobClient is done");
     }
+
 
 }
